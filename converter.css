@@ -1,0 +1,110 @@
+:root {
+  --azul: #0f4c81;
+  --azul-oscuro: #0a3558;
+  --fondo: #f3f6fa;
+  --texto: #1b2733;
+}
+
+[data-theme="dark"] {
+  --fondo: #10161d;
+  --texto: #e6eaf0;
+  color-scheme: dark;
+}
+[data-theme="dark"] form { background: #1a232d; box-shadow: none; }
+[data-theme="dark"] input, [data-theme="dark"] select { background: #10161d; border-color: #3a4756; }
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  background: var(--fondo);
+  color: var(--texto);
+}
+
+/* Barra de título personalizada.
+   Se coloca con las variables de entorno de la superposición de controles de ventana;
+   si la característica no está activa se usan los valores de reserva. */
+#title-bar {
+  position: fixed;
+  left: env(titlebar-area-x, 0);
+  top: env(titlebar-area-y, 0);
+  width: env(titlebar-area-width, 100%);
+  height: env(titlebar-area-height, 40px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  background: var(--azul);
+  color: #fff;
+  font-size: 13px;
+  user-select: none;
+  -webkit-app-region: drag;   /* convierte la barra en un controlador de arrastre */
+  app-region: drag;
+  z-index: 10;
+}
+
+.title-icon { width: 20px; height: 20px; border-radius: 4px; }
+.title-text { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wco-status { margin-left: auto; margin-right: 4px; opacity: .75; font-size: 12px; white-space: nowrap; }
+
+/* El contenido empieza debajo de la barra de título */
+main {
+  padding: calc(env(titlebar-area-height, 40px) + 24px) 20px 24px;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+h1 { font-size: 1.4rem; margin: 0 0 16px; }
+
+form {
+  display: grid;
+  gap: 8px;
+  background: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .08);
+}
+
+label { font-weight: 600; font-size: .9rem; }
+
+input, select {
+  width: 100%;
+  padding: 10px;
+  font-size: 1rem;
+  border: 1px solid #b8c4d0;
+  border-radius: 8px;
+  background: #fff;
+  color: inherit;
+}
+
+input:focus, select:focus { outline: 2px solid var(--azul); outline-offset: 1px; }
+
+output {
+  margin-top: 12px;
+  padding: 14px;
+  text-align: center;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--azul-oscuro);
+  border-radius: 8px;
+}
+
+/* Botones dentro de la barra de título (no deben arrastrar la ventana) */
+.title-actions { display: flex; gap: 2px; }
+.title-btn {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+  display: grid; place-items: center;
+  width: 32px; height: 28px;
+  padding: 0; border: 0; border-radius: 6px;
+  background: transparent; color: #fff; cursor: pointer;
+}
+.title-btn:hover { background: rgba(255, 255, 255, .18); }
+.title-btn:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+.title-btn[aria-pressed="true"] { background: rgba(255, 255, 255, .28); }
+.ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+@media (max-width: 520px) { .wco-status, .title-text { display: none; } }
