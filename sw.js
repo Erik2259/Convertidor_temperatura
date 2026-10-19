@@ -1,4 +1,4 @@
-const CACHE = 'temperature-converter-v3';
+const CACHE = 'temperature-converter-v4';
 const ARCHIVOS = ['./', './index.html', './converter.css', './converter.js'];
 
 self.addEventListener('install', e => {

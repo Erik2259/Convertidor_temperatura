@@ -100,8 +100,115 @@ function enlaceCompartido() {
   u.searchParams.set('a', outputUnit.value);
   return u.href;
 }
-$('btn-share').addEventListener('click', async () => {
-  if (Number.isNaN(ultimoResultado)) { avisar('Escribe una temperatura para compartir'); return; }
+// ---- Exportar: texto, CSV, Excel (.xlsx) y PDF, sin librerías externas ----
+const NOMBRES_LARGOS = { c: 'Celsius', f: 'Fahrenheit', k: 'Kelvin' };
+
+function datosExportacion() {
+  return {
+    valor: parseFloat(inputTemp.value),
+    de: NOMBRES_LARGOS[inputUnit.value],
+    resultado: Math.round(ultimoResultado * 100) / 100,
+    a: NOMBRES_LARGOS[outputUnit.value],
+    fecha: new Date().toISOString().slice(0, 10)
+  };
+}
+const ENCABEZADOS = ['Valor', 'Desde', 'Resultado', 'Hacia', 'Fecha'];
+const filaDatos = (d) => [d.valor, d.de, d.resultado, d.a, d.fecha];
+
+function generarCSV(d) {
+  const esc = (v) => /[",\n;]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v);
+  const texto = [ENCABEZADOS, filaDatos(d)].map(f => f.map(esc).join(',')).join('\r\n') + '\r\n';
+  return new Blob(['﻿' + texto], { type: 'text/csv;charset=utf-8' });
+}
+
+// ZIP sin compresión (método "store"), suficiente para un .xlsx
+const TABLA_CRC = Array.from({ length: 256 }, (_, n) => {
+  let c = n;
+  for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+  return c >>> 0;
+});
+function crc32(bytes) {
+  let c = 0xFFFFFFFF;
+  for (const b of bytes) c = TABLA_CRC[(c ^ b) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+function crearZip(archivos) {
+  const enc = new TextEncoder();
+  const partes = [], central = [];
+  let offset = 0;
+  for (const [nombre, contenido] of archivos) {
+    const n = enc.encode(nombre), datos = enc.encode(contenido), crc = crc32(datos);
+    const local = new DataView(new ArrayBuffer(30));
+    local.setUint32(0, 0x04034b50, true); local.setUint16(4, 20, true); local.setUint16(6, 0x0800, true);
+    local.setUint32(14, crc, true); local.setUint32(18, datos.length, true); local.setUint32(22, datos.length, true);
+    local.setUint16(26, n.length, true);
+    partes.push(local.buffer, n, datos);
+    const cen = new DataView(new ArrayBuffer(46));
+    cen.setUint32(0, 0x02014b50, true); cen.setUint16(4, 20, true); cen.setUint16(6, 20, true); cen.setUint16(8, 0x0800, true);
+    cen.setUint32(16, crc, true); cen.setUint32(20, datos.length, true); cen.setUint32(24, datos.length, true);
+    cen.setUint16(28, n.length, true); cen.setUint32(42, offset, true);
+    central.push(cen.buffer, n);
+    offset += 30 + n.length + datos.length;
+  }
+  const tamCentral = central.reduce((s, p) => s + (p.byteLength ?? p.length), 0);
+  const fin = new DataView(new ArrayBuffer(22));
+  fin.setUint32(0, 0x06054b50, true); fin.setUint16(8, archivos.length, true); fin.setUint16(10, archivos.length, true);
+  fin.setUint32(12, tamCentral, true); fin.setUint32(16, offset, true);
+  return [...partes, ...central, fin.buffer];
+}
+
+function generarXLSX(d) {
+  const xml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const celda = (v, ref) => typeof v === 'number'
+    ? `<c r="${ref}"><v>${v}</v></c>`
+    : `<c r="${ref}" t="inlineStr"><is><t>${xml(v)}</t></is></c>`;
+  const fila = (valores, n) => `<row r="${n}">${valores.map((v, i) => celda(v, 'ABCDE'[i] + n)).join('')}</row>`;
+  const cabecera = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+  const ns = 'http://schemas.openxmlformats.org/';
+  const partes = crearZip([
+    ['[Content_Types].xml', `${cabecera}<Types xmlns="${ns}package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`],
+    ['_rels/.rels', `${cabecera}<Relationships xmlns="${ns}package/2006/relationships"><Relationship Id="rId1" Type="${ns}officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
+    ['xl/workbook.xml', `${cabecera}<workbook xmlns="${ns}spreadsheetml/2006/main" xmlns:r="${ns}officeDocument/2006/relationships"><sheets><sheet name="Conversión" sheetId="1" r:id="rId1"/></sheets></workbook>`],
+    ['xl/_rels/workbook.xml.rels', `${cabecera}<Relationships xmlns="${ns}package/2006/relationships"><Relationship Id="rId1" Type="${ns}officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`],
+    ['xl/worksheets/sheet1.xml', `${cabecera}<worksheet xmlns="${ns}spreadsheetml/2006/main"><cols><col min="1" max="5" width="14" customWidth="1"/></cols><sheetData>${fila(ENCABEZADOS, 1)}${fila(filaDatos(d), 2)}</sheetData></worksheet>`]
+  ]);
+  return new Blob(partes, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+
+function generarPDF(d) {
+  const esc = (s) => String(s).replace(/[\\()]/g, '\\$&');
+  const lineas = [
+    [20, 'Convertidor de temperatura', 760],
+    [14, `${d.valor} ${d.de}  =  ${d.resultado} ${d.a}`, 720],
+    [11, `Valor: ${d.valor}   Desde: ${d.de}`, 690],
+    [11, `Resultado: ${d.resultado}   Hacia: ${d.a}`, 672],
+    [11, `Fecha: ${d.fecha}`, 654]
+  ];
+  const contenido = lineas.map(([t, s, y]) => `BT /F1 ${t} Tf 56 ${y} Td (${esc(s)}) Tj ET`).join('\n');
+  const objetos = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>',
+    `<< /Length ${contenido.length} >>\nstream\n${contenido}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>'
+  ];
+  let pdf = '%PDF-1.4\n';
+  const offsets = objetos.map((o, i) => { const pos = pdf.length; pdf += `${i + 1} 0 obj\n${o}\nendobj\n`; return pos; });
+  const xref = pdf.length;
+  pdf += `xref\n0 ${objetos.length + 1}\n0000000000 65535 f \n`;
+  offsets.forEach(o => { pdf += `${String(o).padStart(10, '0')} 00000 n \n`; });
+  pdf += `trailer\n<< /Size ${objetos.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  // Todo el contenido cabe en Latin-1 (WinAnsi), así que 1 carácter = 1 byte
+  return new Blob([Uint8Array.from(pdf, c => c.charCodeAt(0) & 0xFF)], { type: 'application/pdf' });
+}
+
+const FORMATOS = {
+  csv: { nombre: 'conversion.csv', generar: generarCSV },
+  xlsx: { nombre: 'conversion.xlsx', generar: generarXLSX },
+  pdf: { nombre: 'conversion.pdf', generar: generarPDF }
+};
+
+async function compartirTexto() {
   const texto = `${inputTemp.value} ${nombres[inputUnit.value]} = ${outputTemp.textContent}
 
 ${enlaceCompartido()}`;
@@ -115,7 +222,48 @@ ${enlaceCompartido()}`;
   } catch (err) {
     if (err.name !== 'AbortError') avisar('No se pudo compartir');
   }
+}
+
+async function compartirArchivo(formato) {
+  const { nombre, generar } = FORMATOS[formato];
+  const blob = generar(datosExportacion());
+  const archivo = new File([blob], nombre, { type: blob.type });
+  if (navigator.canShare?.({ files: [archivo] })) {
+    try {
+      await navigator.share({ title: 'Convertidor de temperatura', files: [archivo] });
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+    }
+  }
+  // Sin soporte para compartir archivos: se descarga
+  const url = URL.createObjectURL(archivo);
+  const a = Object.assign(document.createElement('a'), { href: url, download: nombre });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  avisar('Descargado: ' + nombre);
+}
+
+const menuCompartir = $('share-menu');
+const cerrarMenu = () => { menuCompartir.hidden = true; $('btn-share').setAttribute('aria-expanded', 'false'); };
+$('btn-share').addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (Number.isNaN(ultimoResultado)) { avisar('Escribe una temperatura para compartir'); return; }
+  const abrir = menuCompartir.hidden;
+  menuCompartir.hidden = !abrir;
+  $('btn-share').setAttribute('aria-expanded', String(abrir));
+  if (abrir) menuCompartir.querySelector('button').focus();
 });
+menuCompartir.addEventListener('click', (e) => {
+  const formato = e.target.closest('button')?.dataset.formato;
+  if (!formato) return;
+  cerrarMenu();
+  if (formato === 'texto') compartirTexto(); else compartirArchivo(formato);
+});
+document.addEventListener('click', (e) => { if (!menuCompartir.contains(e.target)) cerrarMenu(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrarMenu(); });
 
 // 2c. Recibir contenido (share_target del manifest) o enlace propio ?v=&d=&a=
 function procesarParametrosURL() {
