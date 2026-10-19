@@ -224,10 +224,22 @@ ${enlaceCompartido()}`;
   }
 }
 
+function descargarArchivo(archivo) {
+  const url = URL.createObjectURL(archivo);
+  const a = Object.assign(document.createElement('a'), { href: url, download: archivo.name });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  avisar('Descargado: ' + archivo.name);
+}
+
 async function compartirArchivo(formato) {
   const { nombre, generar } = FORMATOS[formato];
   const blob = generar(datosExportacion());
   const archivo = new File([blob], nombre, { type: blob.type });
+  // El PDF se descarga siempre, además de ofrecerse para compartir
+  if (formato === 'pdf') descargarArchivo(archivo);
   if (navigator.canShare?.({ files: [archivo] })) {
     try {
       await navigator.share({ title: 'Convertidor de temperatura', files: [archivo] });
@@ -237,13 +249,7 @@ async function compartirArchivo(formato) {
     }
   }
   // Sin soporte para compartir archivos: se descarga
-  const url = URL.createObjectURL(archivo);
-  const a = Object.assign(document.createElement('a'), { href: url, download: nombre });
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-  avisar('Descargado: ' + nombre);
+  if (formato !== 'pdf') descargarArchivo(archivo);
 }
 
 const menuCompartir = $('share-menu');
