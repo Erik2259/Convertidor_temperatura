@@ -108,3 +108,31 @@ output {
 .ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 @media (max-width: 520px) { .wco-status, .title-text { display: none; } }
+
+/* Menú de compartir */
+.share-menu {
+  position: fixed;
+  top: calc(env(titlebar-area-y, 0px) + env(titlebar-area-height, 40px) + 4px);
+  right: 12px;
+  display: grid;
+  min-width: 160px;
+  padding: 4px;
+  background: #fff;
+  color: var(--texto);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .25);
+  z-index: 20;
+}
+.share-menu[hidden] { display: none; }
+.share-menu button {
+  padding: 10px 12px;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.share-menu button:hover, .share-menu button:focus-visible { background: rgba(15, 76, 129, .12); outline: none; }
+[data-theme="dark"] .share-menu { background: #1a232d; }
