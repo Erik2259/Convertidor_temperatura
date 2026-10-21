@@ -1,8 +1,9 @@
-const CACHE = 'temperature-converter-v6';
+const CACHE = 'temperature-converter-v7';
 const CACHE_WIDGET = 'tc-widget-datos';
 const CLAVE_DATOS = './widgets/ultima-conversion-datos.json';
 const TAG_WIDGET = 'ultima-conversion';
-const TAG_SYNC = 'actualizar-widget';
+const TAG_SYNC = 'actualizar-widget';      // Periodic Background Sync
+const TAG_REINTENTO = 'actualizar-cache';  // Background Sync: reintento al recuperar la conexión
 const ARCHIVOS = [
   './', './index.html', './converter.css', './converter.js',
   './widgets/ultima-conversion-plantilla.json', './widgets/ultima-conversion-datos.json'
@@ -52,7 +53,27 @@ async function actualizarWidget() {
 
 self.addEventListener('widgetinstall', e => e.waitUntil(registrarSync().then(actualizarWidget)));
 self.addEventListener('widgetresume', e => e.waitUntil(actualizarWidget()));
-self.addEventListener('periodicsync', e => { if (e.tag === TAG_SYNC) e.waitUntil(actualizarWidget()); });
+// Vuelve a descargar los archivos de la app para que las versiones nuevas estén listas al abrirla
+async function actualizarCache() {
+  const cache = await caches.open(CACHE);
+  await Promise.all(ARCHIVOS.map(async url => {
+    const r = await fetch(url, { cache: 'reload' });
+    if (r.ok) await cache.put(url, r);
+  }));
+}
+
+self.addEventListener('periodicsync', e => {
+  if (e.tag !== TAG_SYNC) return;
+  e.waitUntil((async () => {
+    try { await actualizarCache(); }
+    catch { await self.registration.sync?.register(TAG_REINTENTO).catch(() => {}); }
+    await actualizarWidget();
+  })());
+});
+
+self.addEventListener('sync', e => {
+  if (e.tag === TAG_REINTENTO) e.waitUntil(actualizarCache().then(actualizarWidget));
+});
 
 self.addEventListener('widgetclick', e => {
   const verbo = e.action;

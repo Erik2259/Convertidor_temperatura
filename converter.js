@@ -386,5 +386,17 @@ document.addEventListener('keydown', (e) => {
 // ---- Service worker ----
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(err => console.error('SW error', err));
+  registrarSyncPeriodico();
+}
+
+// Sincronización periódica en segundo plano (Edge/Chromium, solo con la app instalada y permiso concedido)
+async function registrarSyncPeriodico() {
+  try {
+    const registro = await navigator.serviceWorker.ready;
+    if (!registro.periodicSync) return;
+    const permiso = await navigator.permissions.query({ name: 'periodic-background-sync' });
+    if (permiso.state !== 'granted') return;
+    await registro.periodicSync.register('actualizar-widget', { minInterval: 60 * 60 * 1000 });
+  } catch { /* API o permiso no disponibles: el widget se actualiza al convertir */ }
 }
 procesarParametrosURL();
