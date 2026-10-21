@@ -5,16 +5,53 @@
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "display_override": ["window-controls-overlay"],
+  "display_override": [
+    "window-controls-overlay"
+  ],
   "lang": "es",
   "theme_color": "#0f4c81",
   "background_color": "#f3f6fa",
   "share_target": {
     "action": "./index.html",
     "method": "GET",
-    "params": { "title": "title", "text": "text", "url": "url" }
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
   },
   "icons": [
-    { "src": "icons/icon512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+    {
+      "src": "icons/icon512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "widgets": [
+    {
+      "name": "Última conversión",
+      "short_name": "Conversión",
+      "tag": "ultima-conversion",
+      "description": "Muestra la última temperatura convertida.",
+      "ms_ac_template": "widgets/ultima-conversion-plantilla.json",
+      "data": "widgets/ultima-conversion-datos.json",
+      "type": "application/json",
+      "auth": false,
+      "update": 3600,
+      "icons": [
+        {
+          "src": "icons/icon512.png",
+          "sizes": "512x512"
+        }
+      ],
+      "screenshots": [
+        {
+          "src": "screenshots/widget.png",
+          "sizes": "600x400",
+          "label": "Widget Última conversión"
+        }
+      ]
+    }
   ]
 }

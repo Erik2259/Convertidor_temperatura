@@ -30,6 +30,26 @@ function convertir() {
   ultimoResultado = resultado;
   const texto = resultado.toLocaleString('es-MX', { maximumFractionDigits: 1 });
   outputTemp.textContent = `${texto} ${nombres[outputUnit.value]}`;
+  guardarParaWidget();
+}
+
+// Guarda la última conversión para el widget de Windows 11 y avisa al service worker
+let widgetTimer;
+function guardarParaWidget() {
+  clearTimeout(widgetTimer);
+  widgetTimer = setTimeout(async () => {
+    if (!('caches' in window) || Number.isNaN(ultimoResultado)) return;
+    const datos = {
+      entrada: `${inputTemp.value} °${nombres[inputUnit.value]}`,
+      resultado: outputTemp.textContent.replace(/ ([CFK])$/, ' °$1'),
+      actualizado: new Date().toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })
+    };
+    try {
+      const c = await caches.open('tc-widget-datos');
+      await c.put('./widgets/ultima-conversion-datos.json', new Response(JSON.stringify(datos), { headers: { 'Content-Type': 'application/json' } }));
+      navigator.serviceWorker?.controller?.postMessage({ tipo: 'widget-actualizar' });
+    } catch { /* sin caché disponible */ }
+  }, 600);
 }
 
 [inputTemp, inputUnit, outputUnit].forEach(el => el.addEventListener('input', convertir));
@@ -275,6 +295,12 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrarMenu
 function procesarParametrosURL() {
   const q = new URLSearchParams(location.search);
   if (![...q.keys()].length) return;
+  if (q.has('nueva')) {   // acción "Nueva conversión" del widget
+    history.replaceState(null, '', location.pathname);
+    inputTemp.focus();
+    inputTemp.select();
+    return;
+  }
   let datos = null;
   const enlaces = [location.href, q.get('url'), q.get('text')?.match(/https?:\/\/\S+/)?.[0]];
   for (const enlace of enlaces) {
