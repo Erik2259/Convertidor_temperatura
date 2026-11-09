@@ -390,13 +390,50 @@ if ('serviceWorker' in navigator) {
 }
 
 // Sincronización periódica en segundo plano (Edge/Chromium, solo con la app instalada y permiso concedido)
+const indicadorSync = $('sync-estado');
+const estadoSync = { modo: 'comprobando', ultimo: null };
+
+function mostrarSync() {
+  const { modo, ultimo } = estadoSync;
+  const textos = {
+    comprobando: 'Sincronización: comprobando…',
+    activa: 'Sincronización en segundo plano activa',
+    'sin-permiso': 'Sincronización sin permiso (instala la app en Edge)',
+    'no-disponible': 'Sincronización no disponible en este navegador'
+  };
+  let texto = textos[modo];
+  if (ultimo) {
+    const hora = new Date(ultimo.fecha).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' });
+    texto += ultimo.ok ? ` · última: ${hora}` : ` · falló (${hora}), se reintentará`;
+  }
+  indicadorSync.textContent = texto;
+  indicadorSync.dataset.estado = ultimo && !ultimo.ok ? 'error' : modo;
+}
+
 async function registrarSyncPeriodico() {
   try {
     const registro = await navigator.serviceWorker.ready;
-    if (!registro.periodicSync) return;
+    if (!registro.periodicSync) { estadoSync.modo = 'no-disponible'; return; }
     const permiso = await navigator.permissions.query({ name: 'periodic-background-sync' });
-    if (permiso.state !== 'granted') return;
+    if (permiso.state !== 'granted') { estadoSync.modo = 'sin-permiso'; return; }
     await registro.periodicSync.register('actualizar-widget', { minInterval: 60 * 60 * 1000 });
-  } catch { /* API o permiso no disponibles: el widget se actualiza al convertir */ }
+    estadoSync.modo = 'activa';
+  } catch { estadoSync.modo = 'no-disponible'; }
+  finally { mostrarSync(); }
 }
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (e) => {
+    if (e.data?.tipo !== 'sync-resultado') return;
+    estadoSync.ultimo = e.data;
+    mostrarSync();
+  });
+  // Último resultado guardado por el service worker mientras la app estaba cerrada
+  caches.open('tc-widget-datos')
+    .then(c => c.match('./widgets/sync-estado.json'))
+    .then(r => r?.json())
+    .then(u => { if (u) { estadoSync.ultimo = u; mostrarSync(); } })
+    .catch(() => {});
+}
+mostrarSync();
 procesarParametrosURL();

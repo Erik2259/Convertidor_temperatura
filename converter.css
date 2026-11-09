@@ -136,3 +136,10 @@ output {
 }
 .share-menu button:hover, .share-menu button:focus-visible { background: rgba(15, 76, 129, .12); outline: none; }
 [data-theme="dark"] .share-menu { background: #1a232d; }
+
+/* Indicador de sincronización */
+.sync-estado { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; font-size: .8rem; opacity: .85; }
+.sync-estado::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: #8a96a3; }
+.sync-estado[data-estado="activa"]::before { background: #2e9d5b; }
+.sync-estado[data-estado="error"]::before { background: #d9534f; }
+.sync-estado[data-estado="sin-permiso"]::before { background: #e0a526; }
