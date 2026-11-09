@@ -1,8 +1,10 @@
-const CACHE = 'temperature-converter-v6';
+const CACHE = 'temperature-converter-v8';
 const CACHE_WIDGET = 'tc-widget-datos';
 const CLAVE_DATOS = './widgets/ultima-conversion-datos.json';
+const CLAVE_SYNC = './widgets/sync-estado.json';
 const TAG_WIDGET = 'ultima-conversion';
-const TAG_SYNC = 'actualizar-widget';
+const TAG_SYNC = 'actualizar-widget';      // Periodic Background Sync
+const TAG_REINTENTO = 'actualizar-cache';  // Background Sync: reintento al recuperar la conexión
 const ARCHIVOS = [
   './', './index.html', './converter.css', './converter.js',
   './widgets/ultima-conversion-plantilla.json', './widgets/ultima-conversion-datos.json'
@@ -52,7 +54,43 @@ async function actualizarWidget() {
 
 self.addEventListener('widgetinstall', e => e.waitUntil(registrarSync().then(actualizarWidget)));
 self.addEventListener('widgetresume', e => e.waitUntil(actualizarWidget()));
-self.addEventListener('periodicsync', e => { if (e.tag === TAG_SYNC) e.waitUntil(actualizarWidget()); });
+// Vuelve a descargar los archivos de la app para que las versiones nuevas estén listas al abrirla
+async function actualizarCache() {
+  const cache = await caches.open(CACHE);
+  await Promise.all(ARCHIVOS.map(async url => {
+    const r = await fetch(url, { cache: 'reload' });
+    if (r.ok) await cache.put(url, r);
+  }));
+}
+
+// Guarda el resultado de la última sincronización (lo lee la página) y avisa a las ventanas abiertas
+async function registrarResultado(origen, ok) {
+  const resultado = { origen, ok, fecha: Date.now() };
+  const cache = await caches.open(CACHE_WIDGET);
+  await cache.put(CLAVE_SYNC, new Response(JSON.stringify(resultado), { headers: { 'Content-Type': 'application/json' } }));
+  for (const c of await clients.matchAll({ includeUncontrolled: true })) c.postMessage({ tipo: 'sync-resultado', ...resultado });
+}
+
+self.addEventListener('periodicsync', e => {
+  if (e.tag !== TAG_SYNC) return;
+  e.waitUntil((async () => {
+    let ok = true;
+    try { await actualizarCache(); }
+    catch { ok = false; await self.registration.sync?.register(TAG_REINTENTO).catch(() => {}); }
+    await actualizarWidget();
+    await registrarResultado('periódica', ok);
+  })());
+});
+
+self.addEventListener('sync', e => {
+  if (e.tag !== TAG_REINTENTO) return;
+  e.waitUntil((async () => {
+    const ok = await actualizarCache().then(() => true, () => false);
+    await actualizarWidget();
+    await registrarResultado('reintento', ok);
+    if (!ok) throw new Error('Reintento fallido');   // el navegador volverá a intentarlo
+  })());
+});
 
 self.addEventListener('widgetclick', e => {
   const verbo = e.action;
