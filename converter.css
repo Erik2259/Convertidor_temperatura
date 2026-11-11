@@ -143,3 +143,18 @@ output {
 .sync-estado[data-estado="activa"]::before { background: #2e9d5b; }
 .sync-estado[data-estado="error"]::before { background: #d9534f; }
 .sync-estado[data-estado="sin-permiso"]::before { background: #e0a526; }
+
+.sync-acciones { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.sync-acciones button {
+  padding: 6px 10px;
+  font: inherit;
+  font-size: .8rem;
+  color: inherit;
+  background: none;
+  border: 1px solid #b8c4d0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.sync-acciones button:hover { background: rgba(15, 76, 129, .12); }
+.sync-acciones button[aria-pressed="true"] { background: #d9534f; border-color: #d9534f; color: #fff; }
+[data-theme="dark"] .sync-acciones button { border-color: #3a4756; }

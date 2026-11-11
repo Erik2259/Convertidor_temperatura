@@ -436,4 +436,35 @@ if ('serviceWorker' in navigator) {
     .catch(() => {});
 }
 mostrarSync();
+
+// Botones de demostración: sincronizar al momento y simular un fallo de red
+const btnSyncAhora = $('btn-sync-ahora');
+const btnSimFallo = $('btn-sim-fallo');
+let simulandoFallo = false;
+
+async function enviarAlSW(mensaje) {
+  const registro = await navigator.serviceWorker.ready;
+  registro.active.postMessage(mensaje);
+}
+function mostrarSimulacion() {
+  btnSimFallo.setAttribute('aria-pressed', String(simulandoFallo));
+  btnSimFallo.textContent = `Simular fallo: ${simulandoFallo ? 'encendido' : 'apagado'}`;
+}
+btnSyncAhora.addEventListener('click', () => {
+  indicadorSync.textContent = 'Sincronizando…';
+  enviarAlSW({ tipo: 'sync-ahora' }).catch(() => avisar('Service worker no disponible'));
+});
+btnSimFallo.addEventListener('click', () => {
+  simulandoFallo = !simulandoFallo;
+  mostrarSimulacion();
+  enviarAlSW({ tipo: 'sim-fallo', activo: simulandoFallo }).catch(() => {});
+});
+if ('caches' in window) {
+  caches.open('tc-widget-datos')
+    .then(c => c.match('./widgets/sim-fallo.json'))
+    .then(r => r?.json())
+    .then(s => { simulandoFallo = !!s?.activo; mostrarSimulacion(); })
+    .catch(() => {});
+}
+mostrarSimulacion();
 procesarParametrosURL();

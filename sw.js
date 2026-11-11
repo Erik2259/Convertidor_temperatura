@@ -1,7 +1,8 @@
-const CACHE = 'temperature-converter-v8';
+const CACHE = 'temperature-converter-v9';
 const CACHE_WIDGET = 'tc-widget-datos';
 const CLAVE_DATOS = './widgets/ultima-conversion-datos.json';
 const CLAVE_SYNC = './widgets/sync-estado.json';
+const CLAVE_SIM = './widgets/sim-fallo.json';   // modo de demostración: fuerza que la sincronización falle
 const TAG_WIDGET = 'ultima-conversion';
 const TAG_SYNC = 'actualizar-widget';      // Periodic Background Sync
 const TAG_REINTENTO = 'actualizar-cache';  // Background Sync: reintento al recuperar la conexión
@@ -55,7 +56,13 @@ async function actualizarWidget() {
 self.addEventListener('widgetinstall', e => e.waitUntil(registrarSync().then(actualizarWidget)));
 self.addEventListener('widgetresume', e => e.waitUntil(actualizarWidget()));
 // Vuelve a descargar los archivos de la app para que las versiones nuevas estén listas al abrirla
+async function simulandoFallo() {
+  const r = await (await caches.open(CACHE_WIDGET)).match(CLAVE_SIM);
+  return r ? (await r.json()).activo === true : false;
+}
+
 async function actualizarCache() {
+  if (await simulandoFallo()) throw new Error('Fallo simulado');
   const cache = await caches.open(CACHE);
   await Promise.all(ARCHIVOS.map(async url => {
     const r = await fetch(url, { cache: 'reload' });
@@ -71,15 +78,16 @@ async function registrarResultado(origen, ok) {
   for (const c of await clients.matchAll({ includeUncontrolled: true })) c.postMessage({ tipo: 'sync-resultado', ...resultado });
 }
 
+async function sincronizar(origen) {
+  let ok = true;
+  try { await actualizarCache(); }
+  catch { ok = false; await self.registration.sync?.register(TAG_REINTENTO).catch(() => {}); }
+  await actualizarWidget();
+  await registrarResultado(origen, ok);
+}
+
 self.addEventListener('periodicsync', e => {
-  if (e.tag !== TAG_SYNC) return;
-  e.waitUntil((async () => {
-    let ok = true;
-    try { await actualizarCache(); }
-    catch { ok = false; await self.registration.sync?.register(TAG_REINTENTO).catch(() => {}); }
-    await actualizarWidget();
-    await registrarResultado('periódica', ok);
-  })());
+  if (e.tag === TAG_SYNC) e.waitUntil(sincronizar('periódica'));
 });
 
 self.addEventListener('sync', e => {
@@ -100,5 +108,11 @@ self.addEventListener('widgetclick', e => {
 });
 
 self.addEventListener('message', e => {
-  if (e.data?.tipo === 'widget-actualizar') e.waitUntil(actualizarWidget());
+  const tipo = e.data?.tipo;
+  if (tipo === 'widget-actualizar') e.waitUntil(actualizarWidget());
+  if (tipo === 'sync-ahora') e.waitUntil(sincronizar('manual'));
+  if (tipo === 'sim-fallo') {
+    e.waitUntil(caches.open(CACHE_WIDGET).then(c =>
+      c.put(CLAVE_SIM, new Response(JSON.stringify({ activo: !!e.data.activo }), { headers: { 'Content-Type': 'application/json' } }))));
+  }
 });
