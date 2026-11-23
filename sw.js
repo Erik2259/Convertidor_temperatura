@@ -1,13 +1,16 @@
-const CACHE = 'temperature-converter-v9';
+importScripts('pendientes.js');
+
+const CACHE = 'temperature-converter-v10';
 const CACHE_WIDGET = 'tc-widget-datos';
 const CLAVE_DATOS = './widgets/ultima-conversion-datos.json';
 const CLAVE_SYNC = './widgets/sync-estado.json';
 const CLAVE_SIM = './widgets/sim-fallo.json';   // modo de demostración: fuerza que la sincronización falle
 const TAG_WIDGET = 'ultima-conversion';
 const TAG_SYNC = 'actualizar-widget';      // Periodic Background Sync
+const TAG_PENDIENTES = 'sincronizar-pendientes';  // Background Sync: conversiones hechas sin conexión
 const TAG_REINTENTO = 'actualizar-cache';  // Background Sync: reintento al recuperar la conexión
 const ARCHIVOS = [
-  './', './index.html', './converter.css', './converter.js',
+  './', './index.html', './converter.css', './converter.js', './pendientes.js',
   './widgets/ultima-conversion-plantilla.json', './widgets/ultima-conversion-datos.json'
 ];
 
@@ -80,7 +83,7 @@ async function registrarResultado(origen, ok) {
 
 async function sincronizar(origen) {
   let ok = true;
-  try { await actualizarCache(); }
+  try { await actualizarCache(); await pendVaciar(); }
   catch { ok = false; await self.registration.sync?.register(TAG_REINTENTO).catch(() => {}); }
   await actualizarWidget();
   await registrarResultado(origen, ok);
@@ -91,9 +94,9 @@ self.addEventListener('periodicsync', e => {
 });
 
 self.addEventListener('sync', e => {
-  if (e.tag !== TAG_REINTENTO) return;
+  if (e.tag !== TAG_REINTENTO && e.tag !== TAG_PENDIENTES) return;
   e.waitUntil((async () => {
-    const ok = await actualizarCache().then(() => true, () => false);
+    const ok = await actualizarCache().then(() => pendVaciar()).then(() => true, () => false);
     await actualizarWidget();
     await registrarResultado('reintento', ok);
     if (!ok) throw new Error('Reintento fallido');   // el navegador volverá a intentarlo

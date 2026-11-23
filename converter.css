@@ -158,3 +158,10 @@ output {
 .sync-acciones button:hover { background: rgba(15, 76, 129, .12); }
 .sync-acciones button[aria-pressed="true"] { background: #d9534f; border-color: #d9534f; color: #fff; }
 [data-theme="dark"] .sync-acciones button { border-color: #3a4756; }
+
+/* Indicador de conexión */
+.conexion-estado { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; font-size: .85rem; font-weight: 600; }
+.conexion-estado::before { content: ""; flex: none; width: 10px; height: 10px; border-radius: 50%; background: #2e9d5b; }
+.conexion-estado[data-estado="offline"]::before { background: #d9534f; }
+.sync-acciones button:disabled { opacity: .5; cursor: not-allowed; }
+.sync-acciones button.destacado { background: var(--azul); border-color: var(--azul); color: #fff; }

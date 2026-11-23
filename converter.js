@@ -49,6 +49,7 @@ function guardarParaWidget() {
       await c.put('./widgets/ultima-conversion-datos.json', new Response(JSON.stringify(datos), { headers: { 'Content-Type': 'application/json' } }));
       navigator.serviceWorker?.controller?.postMessage({ tipo: 'widget-actualizar' });
     } catch { /* sin caché disponible */ }
+    if (!navigator.onLine) registrarPendiente(datos);
   }, 600);
 }
 
@@ -427,6 +428,7 @@ if ('serviceWorker' in navigator) {
     if (e.data?.tipo !== 'sync-resultado') return;
     estadoSync.ultimo = e.data;
     mostrarSync();
+    mostrarConexion();
   });
   // Último resultado guardado por el service worker mientras la app estaba cerrada
   caches.open('tc-widget-datos')
@@ -468,3 +470,33 @@ if ('caches' in window) {
 }
 mostrarSimulacion();
 procesarParametrosURL();
+
+// ---- Estado de conexión y cambios pendientes (Background Sync) ----
+const indicadorConexion = $('conexion-estado');
+
+async function mostrarConexion() {
+  const enLinea = navigator.onLine;
+  const n = await pendContar().catch(() => 0);
+  let texto = enLinea ? 'En línea' : 'Sin conexión';
+  if (n) texto += ` · ${n} ${n === 1 ? 'cambio pendiente' : 'cambios pendientes'} de actualizar`;
+  else if (!enLinea) texto += ' · puedes seguir calculando';
+  indicadorConexion.textContent = texto;
+  indicadorConexion.dataset.estado = enLinea ? 'online' : 'offline';
+  btnSyncAhora.disabled = !enLinea;
+  btnSyncAhora.title = enLinea ? '' : 'Necesitas conexión para actualizar';
+  btnSyncAhora.classList.toggle('destacado', enLinea && n > 0);
+}
+
+// Guarda la conversión hecha sin conexión y pide al navegador una sincronización para cuando vuelva la red
+async function registrarPendiente(datos) {
+  try {
+    await pendAgregar({ entrada: datos.entrada, resultado: datos.resultado, fecha: Date.now() });
+    const registro = await navigator.serviceWorker.ready;
+    await registro.sync?.register('sincronizar-pendientes');
+  } catch { /* sin IndexedDB o sin Background Sync: queda pendiente hasta pulsar Actualizar */ }
+  mostrarConexion();
+}
+
+window.addEventListener('online', mostrarConexion);
+window.addEventListener('offline', mostrarConexion);
+mostrarConexion();
