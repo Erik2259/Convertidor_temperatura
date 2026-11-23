@@ -143,3 +143,9 @@ output {
 .sync-estado[data-estado="activa"]::before { background: #2e9d5b; }
 .sync-estado[data-estado="error"]::before { background: #d9534f; }
 .sync-estado[data-estado="sin-permiso"]::before { background: #e0a526; }
+
+
+/* Indicador de conexión */
+.conexion-estado { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; font-size: .85rem; font-weight: 600; }
+.conexion-estado::before { content: ""; flex: none; width: 10px; height: 10px; border-radius: 50%; background: #2e9d5b; }
+.conexion-estado[data-estado="offline"]::before { background: #d9534f; }
