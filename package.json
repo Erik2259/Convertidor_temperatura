@@ -1,0 +1,8 @@
+{
+  "name": "convertidor-temperatura",
+  "private": true,
+  "description": "Convertidor de temperatura (PWA) con funciones de Vercel para notificaciones push",
+  "dependencies": {
+    "web-push": "^4.0.0"
+  }
+}
