@@ -52,7 +52,12 @@ async function enviar(req, res) {
     res.status(201).json({ ok: true });
   } catch (err) {
     const caducada = err.statusCode === 404 || err.statusCode === 410;
-    res.status(caducada ? 410 : 502).json({ error: caducada ? 'Suscripción caducada' : 'No se pudo enviar el push' });
+    if (caducada) return res.status(410).json({ error: 'Suscripción caducada' });
+    // Detalle para diagnosticar la configuración: solo la primera frase, para no repetir valores de las variables
+    const detalle = err.statusCode
+      ? `el servicio de push respondió ${err.statusCode}`
+      : String(err.message || 'error desconocido').split('. ')[0].slice(0, 120);
+    res.status(502).json({ error: 'No se pudo enviar el push', detalle });
   }
 }
 

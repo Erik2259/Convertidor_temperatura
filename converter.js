@@ -518,7 +518,11 @@ btnPush.addEventListener('click', async () => {
       })
     });
     if (respuesta.status === 410) { await suscripcion.unsubscribe(); btnPush.hidden = true; avisar('Suscripción caducada: vuelve a activar'); }
-    else avisar(respuesta.ok ? 'Push enviado' : 'No se pudo enviar el push');
+    else if (respuesta.ok) avisar('Push enviado');
+    else {
+      const { detalle } = await respuesta.json().catch(() => ({}));
+      avisar(`No se pudo enviar el push (${respuesta.status})${detalle ? ': ' + detalle : ''}`);
+    }
   } catch { avisar('Sin conexión: no se pudo enviar'); }
 });
 
