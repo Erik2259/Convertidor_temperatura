@@ -3,6 +3,6 @@
   "private": true,
   "description": "Convertidor de temperatura (PWA) con funciones de Vercel para notificaciones push",
   "dependencies": {
-    "web-push": "^4.0.0"
+    "web-push": "3.6.7"
   }
 }
