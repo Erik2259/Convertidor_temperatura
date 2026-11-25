@@ -1,6 +1,6 @@
 importScripts('pendientes.js');
 
-const CACHE = 'temperature-converter-v13';
+const CACHE = 'temperature-converter-v14';
 const CACHE_WIDGET = 'tc-widget-datos';
 const CLAVE_DATOS = './widgets/ultima-conversion-datos.json';
 const CLAVE_NOTIF = './widgets/notif-diag.json';
@@ -145,4 +145,17 @@ self.addEventListener('notificationclick', e => {
   if (e.action === 'cerrar') return;
   e.waitUntil(clients.matchAll({ type: 'window' }).then(ventanas =>
     ventanas.length ? ventanas[0].focus() : clients.openWindow('./index.html')));
+});
+
+// Notificación push enviada desde el servidor (api/enviar.js); con userVisibleOnly siempre debe mostrarse
+self.addEventListener('push', e => {
+  let datos = {};
+  try { datos = e.data?.json() ?? {}; } catch { datos = { cuerpo: e.data?.text() }; }
+  e.waitUntil(self.registration.showNotification(datos.titulo || 'Convertidor de temperatura', {
+    body: datos.cuerpo || 'Tienes una notificación',
+    icon: 'icons/icon512.png',
+    tag: 'push',
+    renotify: true,
+    actions: [{ action: 'abrir', title: 'Abrir' }, { action: 'cerrar', title: 'Cerrar' }]
+  }));
 });

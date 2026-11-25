@@ -476,11 +476,62 @@ function actualizarDistintivo(n) {
 
 // ---- Notificaciones: el permiso se pide solo al pulsar el botón ----
 const btnNotificaciones = $('btn-notificaciones');
-if ('Notification' in window && Notification.permission === 'default') {
-  btnNotificaciones.hidden = false;
-  btnNotificaciones.addEventListener('click', async () => {
-    const permiso = await Notification.requestPermission();
-    if (permiso !== 'default') btnNotificaciones.hidden = true;
-    avisar(permiso === 'granted' ? 'Notificaciones activadas' : 'Notificaciones no activadas');
-  });
+const btnPush = $('btn-push');
+
+// ---- Notificaciones push desde el servidor (funciones de Vercel en /api) ----
+const claveAUint8 = (base64) => {
+  const relleno = '='.repeat((4 - base64.length % 4) % 4);
+  const binario = atob((base64 + relleno).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from(binario, c => c.charCodeAt(0));
+};
+
+async function obtenerSuscripcion(crear) {
+  const registro = await navigator.serviceWorker.ready;
+  if (!registro.pushManager) throw new Error('Este navegador no admite push');
+  const existente = await registro.pushManager.getSubscription();
+  if (existente || !crear) return existente;
+  const respuesta = await fetch('/api/clave');
+  if (!respuesta.ok) throw new Error('Push no configurado en el servidor');
+  const { clave } = await respuesta.json();
+  return registro.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: claveAUint8(clave) });
+}
+
+async function prepararPush({ crear, avisarError }) {
+  try {
+    btnPush.hidden = !(await obtenerSuscripcion(crear));
+  } catch (err) {
+    btnPush.hidden = true;
+    if (avisarError) avisar(err.message);
+  }
+}
+
+btnPush.addEventListener('click', async () => {
+  try {
+    const suscripcion = await obtenerSuscripcion(false);
+    const respuesta = await fetch('/api/enviar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        suscripcion: suscripcion.toJSON(),
+        titulo: 'Convertidor de temperatura',
+        cuerpo: `Push de prueba desde Vercel · ${new Date().toLocaleTimeString('es-MX', { timeStyle: 'short' })}`
+      })
+    });
+    if (respuesta.status === 410) { await suscripcion.unsubscribe(); btnPush.hidden = true; avisar('Suscripción caducada: vuelve a activar'); }
+    else avisar(respuesta.ok ? 'Push enviado' : 'No se pudo enviar el push');
+  } catch { avisar('Sin conexión: no se pudo enviar'); }
+});
+
+if ('Notification' in window && 'serviceWorker' in navigator) {
+  if (Notification.permission === 'default') {
+    btnNotificaciones.hidden = false;
+    btnNotificaciones.addEventListener('click', async () => {
+      const permiso = await Notification.requestPermission();
+      if (permiso !== 'default') btnNotificaciones.hidden = true;
+      avisar(permiso === 'granted' ? 'Notificaciones activadas' : 'Notificaciones no activadas');
+      if (permiso === 'granted') prepararPush({ crear: true, avisarError: true });
+    });
+  } else if (Notification.permission === 'granted') {
+    prepararPush({ crear: true, avisarError: false });
+  }
 }
