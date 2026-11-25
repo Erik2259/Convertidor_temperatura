@@ -425,7 +425,7 @@ async function registrarSyncPeriodico() {
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', (e) => {
-    if (e.data?.tipo === 'aviso') { mostrarBanner(e.data.titulo, e.data.cuerpo); return; }
+    if (e.data?.tipo === 'aviso') { mostrarBanner(e.data.titulo, e.data.cuerpo); e.ports[0]?.postMessage('mostrado'); return; }
     if (e.data?.tipo !== 'sync-resultado') return;
     estadoSync.ultimo = e.data;
     mostrarSync();
