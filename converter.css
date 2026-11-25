@@ -164,3 +164,30 @@ output {
 .btn-notificaciones:hover { background: rgba(15, 76, 129, .12); }
 .btn-notificaciones[hidden] { display: none; }
 [data-theme="dark"] .btn-notificaciones { border-color: #3a4756; }
+
+/* Aviso que baja desde arriba dentro de la app */
+.banner {
+  position: fixed;
+  top: calc(env(titlebar-area-y, 0px) + env(titlebar-area-height, 40px) + 8px);
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: max-content;
+  max-width: calc(100% - 24px);
+  padding: 10px 12px 10px 16px;
+  background: var(--azul);
+  color: #fff;
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .35);
+  transform: translate(-50%, -140%);
+  opacity: 0;
+  transition: transform .25s ease, opacity .25s ease;
+  z-index: 30;
+}
+.banner[hidden] { display: none; }
+.banner.visible { transform: translate(-50%, 0); opacity: 1; }
+.banner-texto { display: grid; gap: 2px; font-size: .9rem; }
+.banner-cerrar { flex: none; padding: 2px 8px; font-size: 1.2rem; line-height: 1; color: inherit; background: none; border: 0; border-radius: 6px; cursor: pointer; }
+.banner-cerrar:hover { background: rgba(255, 255, 255, .18); }
+@media (prefers-reduced-motion: reduce) { .banner { transition: none; } }
