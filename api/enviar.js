@@ -57,6 +57,7 @@ async function enviar(req, res) {
     const detalle = err.statusCode
       ? `el servicio de push respondió ${err.statusCode}`
       : String(err.message || 'error desconocido').split('. ')[0].slice(0, 120);
+    console.error('[push] fallo al enviar', { estado: err.statusCode, detalle, servicio: new URL(suscripcion.endpoint).hostname, respuesta: String(err.body || '').slice(0, 200) });
     res.status(502).json({ error: 'No se pudo enviar el push', detalle });
   }
 }

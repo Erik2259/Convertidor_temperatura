@@ -1,6 +1,6 @@
 importScripts('pendientes.js');
 
-const CACHE = 'temperature-converter-v15';
+const CACHE = 'temperature-converter-v16';
 const CACHE_WIDGET = 'tc-widget-datos';
 const CLAVE_DATOS = './widgets/ultima-conversion-datos.json';
 const CLAVE_NOTIF = './widgets/notif-diag.json';
@@ -48,6 +48,7 @@ async function leerDatos() {
 async function actualizarWidget() {
   if (!self.widgets) return;
   try {
+    if (!(await self.widgets.getByTag(TAG_WIDGET))) return;   // el widget no está añadido en el panel: nada que actualizar
     const [plantilla, datos] = await Promise.all([
       caches.match('./widgets/ultima-conversion-plantilla.json').then(r => r || fetch('./widgets/ultima-conversion-plantilla.json')).then(r => r.text()),
       leerDatos().then(r => r.text())
