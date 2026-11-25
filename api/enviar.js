@@ -44,15 +44,19 @@ async function enviar(req, res) {
   });
 
   try {
-    await webpush.sendNotification(
+    const respuesta = await webpush.sendNotification(
       { endpoint: suscripcion.endpoint, keys: { p256dh: claves.p256dh, auth: claves.auth } },
       mensaje,
       { TTL: 60, vapidDetails: { subject: VAPID_SUBJECT, publicKey: VAPID_PUBLIC_KEY, privateKey: VAPID_PRIVATE_KEY } }
     );
+    console.log('[push] enviado', { servicio: new URL(suscripcion.endpoint).hostname, estado: respuesta?.statusCode });
     res.status(201).json({ ok: true });
   } catch (err) {
     const caducada = err.statusCode === 404 || err.statusCode === 410;
-    if (caducada) return res.status(410).json({ error: 'Suscripción caducada' });
+    if (caducada) {
+      console.log('[push] suscripción caducada', { servicio: new URL(suscripcion.endpoint).hostname, estado: err.statusCode });
+      return res.status(410).json({ error: 'Suscripción caducada' });
+    }
     // Detalle para diagnosticar la configuración: solo la primera frase, para no repetir valores de las variables
     const detalle = err.statusCode
       ? `el servicio de push respondió ${err.statusCode}`
