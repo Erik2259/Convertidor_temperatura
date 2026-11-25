@@ -1,6 +1,6 @@
 importScripts('pendientes.js');
 
-const CACHE = 'temperature-converter-v16';
+const CACHE = 'temperature-converter-v17';
 const CACHE_WIDGET = 'tc-widget-datos';
 const CLAVE_DATOS = './widgets/ultima-conversion-datos.json';
 const CLAVE_NOTIF = './widgets/notif-diag.json';
@@ -76,7 +76,14 @@ async function registrarResultado(origen, ok) {
   for (const c of await clients.matchAll({ includeUncontrolled: true })) c.postMessage({ tipo: 'sync-resultado', ...resultado });
 }
 
-// Vacía la cola, quita el distintivo y, si la app está cerrada, avisa con una notificación
+// Con la app a la vista el aviso sale dentro de la propia app (barra superior); si no, como notificación del sistema
+async function avisarEnApp(ventanas, titulo, cuerpo) {
+  const visibles = ventanas.filter(v => v.visibilityState === 'visible');
+  visibles.forEach(v => v.postMessage({ tipo: 'aviso', titulo, cuerpo }));
+  return visibles.length > 0;
+}
+
+// Vacía la cola, quita el distintivo y avisa de que se actualizó
 async function finalizarPendientes() {
   const n = await pendContar();
   await pendVaciar();
@@ -84,13 +91,16 @@ async function finalizarPendientes() {
   const diag = { fecha: new Date().toISOString(), pendientes: n, permiso: self.Notification?.permission ?? 'sin API', ventanas: [], resultado: '' };
   try {
     if (!n) diag.resultado = 'sin pendientes: no se avisa';
-    else if (diag.permiso !== 'granted') diag.resultado = 'sin permiso: no se avisa';
     else {
-      diag.ventanas = (await clients.matchAll({ type: 'window' })).map(v => v.visibilityState);
-      if (diag.ventanas.includes('visible')) diag.resultado = 'app a la vista: no se avisa';
+      const ventanas = await clients.matchAll({ type: 'window' });
+      diag.ventanas = ventanas.map(v => v.visibilityState);
+      const titulo = 'Convertidor de temperatura';
+      const cuerpo = `Se actualizaron ${n} ${n === 1 ? 'cambio' : 'cambios'}`;
+      if (await avisarEnApp(ventanas, titulo, cuerpo)) diag.resultado = 'app a la vista: aviso dentro de la app';
+      else if (diag.permiso !== 'granted') diag.resultado = 'sin permiso: no se avisa';
       else {
-        await self.registration.showNotification('Convertidor de temperatura', {
-          body: `Se actualizaron ${n} ${n === 1 ? 'cambio' : 'cambios'}`,
+        await self.registration.showNotification(titulo, {
+          body: cuerpo,
           icon: 'icons/icon512.png',
           tag: 'sync-pendientes',
           renotify: true,
@@ -148,15 +158,22 @@ self.addEventListener('notificationclick', e => {
     ventanas.length ? ventanas[0].focus() : clients.openWindow('./index.html')));
 });
 
-// Notificación push enviada desde el servidor (api/enviar.js); con userVisibleOnly siempre debe mostrarse
+// Notificación push enviada desde el servidor (api/enviar.js)
 self.addEventListener('push', e => {
   let datos = {};
   try { datos = e.data?.json() ?? {}; } catch { datos = { cuerpo: e.data?.text() }; }
-  e.waitUntil(self.registration.showNotification(datos.titulo || 'Convertidor de temperatura', {
-    body: datos.cuerpo || 'Tienes una notificación',
-    icon: 'icons/icon512.png',
-    tag: 'push',
-    renotify: true,
-    actions: [{ action: 'abrir', title: 'Abrir' }, { action: 'cerrar', title: 'Cerrar' }]
-  }));
+  const titulo = datos.titulo || 'Convertidor de temperatura';
+  const cuerpo = datos.cuerpo || 'Tienes una notificación';
+  e.waitUntil((async () => {
+    // Con la app a la vista, el push se muestra como barra dentro de la app y no como notificación del sistema
+    if (await avisarEnApp(await clients.matchAll({ type: 'window' }), titulo, cuerpo)) return;
+    await self.registration.showNotification(titulo, {
+      body: cuerpo,
+      icon: 'icons/icon512.png',
+      tag: 'push',
+      renotify: true,
+      actions: [{ action: 'abrir', title: 'Abrir' }, { action: 'cerrar', title: 'Cerrar' }]
+    });
+  })());
 });
+

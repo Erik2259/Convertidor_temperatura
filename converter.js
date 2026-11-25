@@ -425,6 +425,7 @@ async function registrarSyncPeriodico() {
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', (e) => {
+    if (e.data?.tipo === 'aviso') { mostrarBanner(e.data.titulo, e.data.cuerpo); return; }
     if (e.data?.tipo !== 'sync-resultado') return;
     estadoSync.ultimo = e.data;
     mostrarSync();
@@ -539,3 +540,21 @@ if ('Notification' in window && 'serviceWorker' in navigator) {
     prepararPush({ crear: true, avisarError: false });
   }
 }
+
+// ---- Barra de avisos dentro de la app (push o sincronización con la app a la vista) ----
+const banner = $('banner');
+let bannerTimer;
+function ocultarBanner() {
+  clearTimeout(bannerTimer);
+  banner.classList.remove('visible');
+  setTimeout(() => { if (!banner.classList.contains('visible')) banner.hidden = true; }, 250);
+}
+function mostrarBanner(titulo, cuerpo) {
+  $('banner-titulo').textContent = titulo || '';
+  $('banner-cuerpo').textContent = cuerpo || '';
+  banner.hidden = false;
+  requestAnimationFrame(() => banner.classList.add('visible'));
+  clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(ocultarBanner, 6000);
+}
+$('banner-cerrar').addEventListener('click', ocultarBanner);
