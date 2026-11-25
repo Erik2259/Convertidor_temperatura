@@ -1,8 +1,9 @@
 importScripts('pendientes.js');
 
-const CACHE = 'temperature-converter-v12';
+const CACHE = 'temperature-converter-v13';
 const CACHE_WIDGET = 'tc-widget-datos';
 const CLAVE_DATOS = './widgets/ultima-conversion-datos.json';
+const CLAVE_NOTIF = './widgets/notif-diag.json';
 const CLAVE_SYNC = './widgets/sync-estado.json';
 const TAG_WIDGET = 'ultima-conversion';
 const TAG_SYNC = 'actualizar-widget';      // Periodic Background Sync
@@ -79,15 +80,30 @@ async function finalizarPendientes() {
   const n = await pendContar();
   await pendVaciar();
   try { await self.navigator.clearAppBadge?.(); } catch { /* sin API de distintivos */ }
-  if (!n || self.Notification?.permission !== 'granted') return;
-  const ventanas = await clients.matchAll({ type: 'window' });
-  if (ventanas.some(v => v.visibilityState === 'visible')) return;   // la app está a la vista: sin avisos
-  await self.registration.showNotification('Convertidor de temperatura', {
-    body: `Se actualizaron ${n} ${n === 1 ? 'cambio' : 'cambios'}`,
-    icon: 'icons/icon512.png',
-    tag: 'sync-pendientes',
-    actions: [{ action: 'abrir', title: 'Abrir' }, { action: 'cerrar', title: 'Cerrar' }]
-  });
+  const diag = { fecha: new Date().toISOString(), pendientes: n, permiso: self.Notification?.permission ?? 'sin API', ventanas: [], resultado: '' };
+  try {
+    if (!n) diag.resultado = 'sin pendientes: no se avisa';
+    else if (diag.permiso !== 'granted') diag.resultado = 'sin permiso: no se avisa';
+    else {
+      diag.ventanas = (await clients.matchAll({ type: 'window' })).map(v => v.visibilityState);
+      if (diag.ventanas.includes('visible')) diag.resultado = 'app a la vista: no se avisa';
+      else {
+        await self.registration.showNotification('Convertidor de temperatura', {
+          body: `Se actualizaron ${n} ${n === 1 ? 'cambio' : 'cambios'}`,
+          icon: 'icons/icon512.png',
+          tag: 'sync-pendientes',
+          renotify: true,
+          actions: [{ action: 'abrir', title: 'Abrir' }, { action: 'cerrar', title: 'Cerrar' }]
+        });
+        diag.resultado = `notificación enviada; activas: ${(await self.registration.getNotifications()).length}`;
+      }
+    }
+  } catch (err) {
+    diag.resultado = `error al notificar: ${err.name}: ${err.message}`;
+  }
+  console.log('[notificación]', diag);
+  const cache = await caches.open(CACHE_WIDGET);   // el último intento queda guardado para consultarlo desde la consola
+  await cache.put(CLAVE_NOTIF, new Response(JSON.stringify(diag), { headers: { 'Content-Type': 'application/json' } }));
 }
 
 async function sincronizar(origen) {
