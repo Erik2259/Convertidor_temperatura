@@ -451,6 +451,7 @@ async function mostrarConexion() {
   else if (!enLinea) texto += ' · puedes seguir calculando';
   indicadorConexion.textContent = texto;
   indicadorConexion.dataset.estado = enLinea ? 'online' : 'offline';
+  actualizarDistintivo(n);
 }
 
 // Guarda la conversión hecha sin conexión y pide al navegador una sincronización para cuando vuelva la red
@@ -466,3 +467,20 @@ async function registrarPendiente(datos) {
 window.addEventListener('online', mostrarConexion);
 window.addEventListener('offline', mostrarConexion);
 mostrarConexion();
+
+// ---- Distintivo en el icono de la app (App Badging API) ----
+function actualizarDistintivo(n) {
+  if (!navigator.setAppBadge) return;
+  (n > 0 ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => {});
+}
+
+// ---- Notificaciones: el permiso se pide solo al pulsar el botón ----
+const btnNotificaciones = $('btn-notificaciones');
+if ('Notification' in window && Notification.permission === 'default') {
+  btnNotificaciones.hidden = false;
+  btnNotificaciones.addEventListener('click', async () => {
+    const permiso = await Notification.requestPermission();
+    if (permiso !== 'default') btnNotificaciones.hidden = true;
+    avisar(permiso === 'granted' ? 'Notificaciones activadas' : 'Notificaciones no activadas');
+  });
+}

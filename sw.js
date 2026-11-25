@@ -1,6 +1,6 @@
 importScripts('pendientes.js');
 
-const CACHE = 'temperature-converter-v11';
+const CACHE = 'temperature-converter-v12';
 const CACHE_WIDGET = 'tc-widget-datos';
 const CLAVE_DATOS = './widgets/ultima-conversion-datos.json';
 const CLAVE_SYNC = './widgets/sync-estado.json';
@@ -74,9 +74,25 @@ async function registrarResultado(origen, ok) {
   for (const c of await clients.matchAll({ includeUncontrolled: true })) c.postMessage({ tipo: 'sync-resultado', ...resultado });
 }
 
+// Vacía la cola, quita el distintivo y, si la app está cerrada, avisa con una notificación
+async function finalizarPendientes() {
+  const n = await pendContar();
+  await pendVaciar();
+  try { await self.navigator.clearAppBadge?.(); } catch { /* sin API de distintivos */ }
+  if (!n || self.Notification?.permission !== 'granted') return;
+  const ventanas = await clients.matchAll({ type: 'window' });
+  if (ventanas.some(v => v.visibilityState === 'visible')) return;   // la app está a la vista: sin avisos
+  await self.registration.showNotification('Convertidor de temperatura', {
+    body: `Se actualizaron ${n} ${n === 1 ? 'cambio' : 'cambios'}`,
+    icon: 'icons/icon512.png',
+    tag: 'sync-pendientes',
+    actions: [{ action: 'abrir', title: 'Abrir' }, { action: 'cerrar', title: 'Cerrar' }]
+  });
+}
+
 async function sincronizar(origen) {
   let ok = true;
-  try { await actualizarCache(); await pendVaciar(); }
+  try { await actualizarCache(); await finalizarPendientes(); }
   catch { ok = false; await self.registration.sync?.register(TAG_REINTENTO).catch(() => {}); }
   await actualizarWidget();
   await registrarResultado(origen, ok);
@@ -89,7 +105,7 @@ self.addEventListener('periodicsync', e => {
 self.addEventListener('sync', e => {
   if (e.tag !== TAG_REINTENTO && e.tag !== TAG_PENDIENTES) return;
   e.waitUntil((async () => {
-    const ok = await actualizarCache().then(() => pendVaciar()).then(() => true, () => false);
+    const ok = await actualizarCache().then(() => finalizarPendientes()).then(() => true, () => false);
     await actualizarWidget();
     await registrarResultado('reintento', ok);
     if (!ok) throw new Error('Reintento fallido');   // el navegador volverá a intentarlo
@@ -106,4 +122,11 @@ self.addEventListener('widgetclick', e => {
 self.addEventListener('message', e => {
   const tipo = e.data?.tipo;
   if (tipo === 'widget-actualizar') e.waitUntil(actualizarWidget());
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  if (e.action === 'cerrar') return;
+  e.waitUntil(clients.matchAll({ type: 'window' }).then(ventanas =>
+    ventanas.length ? ventanas[0].focus() : clients.openWindow('./index.html')));
 });

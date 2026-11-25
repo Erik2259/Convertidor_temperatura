@@ -149,3 +149,18 @@ output {
 .conexion-estado { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; font-size: .85rem; font-weight: 600; }
 .conexion-estado::before { content: ""; flex: none; width: 10px; height: 10px; border-radius: 50%; background: #2e9d5b; }
 .conexion-estado[data-estado="offline"]::before { background: #d9534f; }
+
+.btn-notificaciones {
+  margin-top: 8px;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: .8rem;
+  color: inherit;
+  background: none;
+  border: 1px solid #b8c4d0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.btn-notificaciones:hover { background: rgba(15, 76, 129, .12); }
+.btn-notificaciones[hidden] { display: none; }
+[data-theme="dark"] .btn-notificaciones { border-color: #3a4756; }
