@@ -1,6 +1,6 @@
 importScripts('pendientes.js');
 
-const CACHE = 'temperature-converter-v17';
+const CACHE = 'temperature-converter-v18';
 const CACHE_WIDGET = 'tc-widget-datos';
 const CLAVE_DATOS = './widgets/ultima-conversion-datos.json';
 const CLAVE_NOTIF = './widgets/notif-diag.json';
@@ -76,11 +76,17 @@ async function registrarResultado(origen, ok) {
   for (const c of await clients.matchAll({ includeUncontrolled: true })) c.postMessage({ tipo: 'sync-resultado', ...resultado });
 }
 
-// Con la app a la vista el aviso sale dentro de la propia app (barra superior); si no, como notificación del sistema
+// Con la app a la vista el aviso sale dentro de la propia app (barra superior); si no, como notificación del sistema.
+// La página confirma que lo mostró; si no responde (por ejemplo una versión antigua abierta), se usa la notificación del sistema.
 async function avisarEnApp(ventanas, titulo, cuerpo) {
-  const visibles = ventanas.filter(v => v.visibilityState === 'visible');
-  visibles.forEach(v => v.postMessage({ tipo: 'aviso', titulo, cuerpo }));
-  return visibles.length > 0;
+  const confirmaciones = ventanas.filter(v => v.visibilityState === 'visible').map(v => new Promise(resolve => {
+    const canal = new MessageChannel();
+    const terminar = (mostrado) => { clearTimeout(espera); canal.port1.close(); resolve(mostrado); };
+    const espera = setTimeout(() => terminar(false), 1000);
+    canal.port1.onmessage = () => terminar(true);
+    v.postMessage({ tipo: 'aviso', titulo, cuerpo }, [canal.port2]);
+  }));
+  return (await Promise.all(confirmaciones)).some(Boolean);
 }
 
 // Vacía la cola, quita el distintivo y avisa de que se actualizó
