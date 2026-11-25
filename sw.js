@@ -1,6 +1,6 @@
 importScripts('pendientes.js');
 
-const CACHE = 'temperature-converter-v14';
+const CACHE = 'temperature-converter-v15';
 const CACHE_WIDGET = 'tc-widget-datos';
 const CLAVE_DATOS = './widgets/ultima-conversion-datos.json';
 const CLAVE_NOTIF = './widgets/notif-diag.json';
