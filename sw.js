@@ -1,8 +1,9 @@
 importScripts('pendientes.js');
 
-const CACHE = 'temperature-converter-v18';
+const CACHE = 'temperature-converter-v19';
 const CACHE_WIDGET = 'tc-widget-datos';
 const CLAVE_DATOS = './widgets/ultima-conversion-datos.json';
+const CLAVE_PUSH = './widgets/push-diag.json';
 const CLAVE_NOTIF = './widgets/notif-diag.json';
 const CLAVE_SYNC = './widgets/sync-estado.json';
 const TAG_WIDGET = 'ultima-conversion';
@@ -171,15 +172,27 @@ self.addEventListener('push', e => {
   const titulo = datos.titulo || 'Convertidor de temperatura';
   const cuerpo = datos.cuerpo || 'Tienes una notificación';
   e.waitUntil((async () => {
-    // Con la app a la vista, el push se muestra como barra dentro de la app y no como notificación del sistema
-    if (await avisarEnApp(await clients.matchAll({ type: 'window' }), titulo, cuerpo)) return;
-    await self.registration.showNotification(titulo, {
-      body: cuerpo,
-      icon: 'icons/icon512.png',
-      tag: 'push',
-      renotify: true,
-      actions: [{ action: 'abrir', title: 'Abrir' }, { action: 'cerrar', title: 'Cerrar' }]
-    });
+    const diag = { fecha: new Date().toISOString(), titulo, cuerpo, permiso: self.Notification?.permission ?? 'sin API', ventanas: [], resultado: '' };
+    try {
+      const ventanas = await clients.matchAll({ type: 'window' });
+      diag.ventanas = ventanas.map(v => v.visibilityState);
+      // Con la app a la vista, el push se muestra como barra dentro de la app y no como notificación del sistema
+      if (await avisarEnApp(ventanas, titulo, cuerpo)) diag.resultado = 'aviso dentro de la app';
+      else {
+        await self.registration.showNotification(titulo, {
+          body: cuerpo,
+          icon: 'icons/icon512.png',
+          tag: 'push',
+          renotify: true,
+          actions: [{ action: 'abrir', title: 'Abrir' }, { action: 'cerrar', title: 'Cerrar' }]
+        });
+        diag.resultado = `notificación del sistema enviada; activas: ${(await self.registration.getNotifications()).length}`;
+      }
+    } catch (err) {
+      diag.resultado = `error: ${err.name}: ${err.message}`;
+    }
+    console.log('[push recibido]', diag);   // el último push recibido queda guardado para consultarlo desde la consola
+    const cache = await caches.open(CACHE_WIDGET);
+    await cache.put(CLAVE_PUSH, new Response(JSON.stringify(diag), { headers: { 'Content-Type': 'application/json' } }));
   })());
 });
-
